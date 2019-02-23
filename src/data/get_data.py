@@ -24,7 +24,7 @@ def main(config_filepath):
     AZURE_STORAGE_NAME = os.environ.get("AZURE_STORAGE_NAME")
     AZURE_STORAGE_KEY = os.environ.get("AZURE_STORAGE_KEY")
 
-    logger.info("**** STARTING DOWNLOAD SCRIPT ****")
+    logger.info("************ Start ************")
 
     ## download articles
     headers = {'Authorization': 'OAuth ' + FEEDLY_ACCESS_TOKEN}
@@ -63,8 +63,8 @@ def main(config_filepath):
     
     logger.info("%d New articles added to datafile" % (len(feedDataUpdated)-len(feedDataStored)))
 
-    logger.info("**** FINISHED DOWNLOAD SCRIPT ****")
-
+    logger.info("************ End ************")
+    
 if __name__ == "__main__": 
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)
