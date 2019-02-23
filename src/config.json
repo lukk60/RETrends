@@ -1,0 +1,11 @@
+{
+    "feedly": 
+        {
+        "maxDownloadsPerFeed": 999
+        },
+    "azureStorage": 
+        {
+        "containerName": "feedlydata",
+        "blobName": "feedlydata"
+        }
+}
