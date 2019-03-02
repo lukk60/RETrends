@@ -32,35 +32,48 @@ def main(config_filepath, output_dir):
         accountName = AZURE_STORAGE_NAME,
         accountKey = AZURE_STORAGE_KEY
         )
-    logger.info("Raw Documents retrieved: %d " % len(dRaw))
-    # convert to dataframe
+    logger.info("Raw documents retrieved: %d " % len(dRaw))
+
+    # process structured data
     df = pd.DataFrame.from_dict(dRaw).transpose()
-    df = df[[
-        "feedTitle", "author", "published", "engagement", "title", "summary"
-        ]]
-
-    for i in df.index:
-        try:
-            df["summary"][i] = df["summary"][i]["content"]
-        except TypeError:
-            df["summary"][i] = None
-
-    # convert timestamps
+    df = df[["feedTitle", "author", "published", "engagement", "title"]]
     df["published"] = pd.to_datetime(df["published"], unit="ms")
+    df["fileID"] = np.arange(len(df)) + 1
 
-    # apply text preprocessing pipeline
-    preprocessor = np.vectorize(preprocess_utils.preprocess_document)
-
-    df["summary_processed"] = preprocessor(df["summary"])
-    df["title_processed"]   = preprocessor(df["title"])
-
-    # save preprocessed data
-    output_filepath = os.path.join(
-        output_dir, "preprocessed_"+ NOW.strftime("%Y%m%d")
+    # save structured data to pickle
+    outputPath_structured = os.path.join(
+        output_dir, "structured_data_"+ NOW.strftime("%Y%m%d") + ".pickle"
         )
-    df.to_pickle(output_filepath)
+    df.to_pickle(outputPath_structured)
+    logger.info("Structured data saved: %d" % len(df))
 
-    logger.info("Processed Documents: %d" % len(df))
+
+    # extract text data and apply preprocessing pipeline
+    outputPath_text = os.path.join(output_dir, "text_data")
+    if not os.path.exists(outputPath_text):
+        os.mkdir(outputPath_text)
+
+    nFiles = 0
+
+    for k,v in dRaw.items():
+        try:
+            title = v.get("title")
+            summary = v.get("summary").get("content")
+            text = title + "\n" + summary
+            text_processed = preprocess_utils.preprocess_document(text)
+
+            fileName = "feedly_"+str(df["fileID"][k])+".txt"
+            fileName = os.path.join(outputPath_text, fileName)
+            with open(os.path.normpath(fileName), "w") as f:
+                f.write(text_processed)
+            nFiles +=1
+
+        except AttributeError:
+            pass
+        except TypeError:
+            pass
+
+    logger.info("Text documents written: %d" %nFiles)
     logger.info("************ End ************")
 
 if __name__ == "__main__": 
