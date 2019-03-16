@@ -1,44 +1,67 @@
 # -*- coding: utf-8 -*-
 import sys, os, click, logging
 from dotenv import find_dotenv, load_dotenv
-import json, urllib
-import feedly_api_utils as feedly
+import json
 import datetime
 import azure_storage_utils
+import get_data_utils
+import numpy as np
 
 @click.command()
 @click.argument("config_filepath", type=click.Path(exists=True))
-def main(config_filepath):
-    """ download all articles from feedly, merge them with the already saved articles 
-        and upload the new corpus to azure storage 
+@click.argument("query_filepath", type=click.Path(exists=True))
+@click.option("--update_linklist", default=True, help="Should the linklist be updated or not")
+def main(config_filepath, query_filepath, update_linklist):
+    """ send pilot query to google search, 
+        collect links in linklist,
+        crawl webpages in linklist
+        save crawled documents to azure blob storage
     """    
     ## create logger
     logger = logging.getLogger(__name__)
 
-    ## load config
+    ## load config and query list
     with open(config_filepath, "r") as f:
         cfg = json.load(f)
 
-    FEEDLY_USER_ID = os.environ.get("FEEDLY_USER_ID")
-    FEEDLY_ACCESS_TOKEN = os.environ.get("FEEDLY_ACCESS_TOKEN")
+    with open(query_filepath, "r") as f:
+        queryList = f.readlines()
+
     AZURE_STORAGE_NAME = os.environ.get("AZURE_STORAGE_NAME")
     AZURE_STORAGE_KEY = os.environ.get("AZURE_STORAGE_KEY")
 
     logger.info("************ Start ************")
 
-    ## download articles
-    headers = {'Authorization': 'OAuth ' + FEEDLY_ACCESS_TOKEN}
-    feedlist = feedly.get_feedlist("Real Estate News", headers)
-    feedData = feedly.download_feeds(
-        feedlist, headers, count=int(cfg["feedly"]["maxDownloadsPerFeed"])
-        )
+    
+    if update_linklist:
+        # get links
+        newLinks = get_data_utils.get_links(
+            queryList, topN=cfg["googleSearch"]["topN"]
+            )
+        nLinksNew = np.sum([len(v) for v in newLinks.values()])        
 
-    nDownloaded = [len(feedData[feed]["items"]) for feed in feedData]
-    logger.info("%d Articles downloaded" % sum(nDownloaded))
+        # merge new and existing links
+        linklist_filepath = cfg["general"]["linklist_filepath"]
+        if not os.path.exists(linklist_filepath):
+            open(linklist_filepath, "w").close()
 
-    ## restructure data 
-    feedDataSimple = feedly.restructure_data(feedData)
+        try:
+            with open(linklist_filepath, "r") as f:
+                oldLinks = json.load(f)
+        except:
+            oldLinks = dict()
+        allLinks = get_data_utils.merge_linklists(newLinks, oldLinks)
 
+        nLinksTot = np.sum([len(v) for v in allLinks.values()])
+        logger.info("Returned links: %d" % nLinksNew)
+    
+        # save updated linklist
+        with open(linklist_filepath, "w") as f:
+            json.dump(allLinks, f, sort_keys=True, indent=4)
+        
+        logger.info("New total of links saved: %d" % nLinksTot)
+    
+    '''
     ## save data
     # load stored data from blob store
     feedDataStored = azure_storage_utils.load_text_file(
@@ -62,7 +85,7 @@ def main(config_filepath):
 
     
     logger.info("%d New articles added to datafile" % (len(feedDataUpdated)-len(feedDataStored)))
-
+'''
     logger.info("************ End ************")
     
 if __name__ == "__main__": 

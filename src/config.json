@@ -1,11 +1,15 @@
 {
-    "feedly": 
-        {
-        "maxDownloadsPerFeed": 999
-        },
     "azureStorage": 
-        {
-        "containerName": "feedlydata",
-        "blobName": "feedlydata"
-        }
+    {
+        "containerName": "googledata",
+        "blobName": "googledata"
+    },
+    "googleSearch":
+    {
+        "topN": 100
+    },
+    "general":
+    {
+        "linklist_filepath": "D:/ZHAW/RETrends/data/raw/linklist.json"
+    }
 }
