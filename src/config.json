@@ -6,7 +6,7 @@
     },
     "googleSearch":
     {
-        "topN": 100
+        "SearchTopN": 100
     },
     "general":
     {

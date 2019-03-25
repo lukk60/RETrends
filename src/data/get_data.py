@@ -25,26 +25,28 @@ def main(config_filepath, query_filepath, update_linklist):
         cfg = json.load(f)
 
     with open(query_filepath, "r") as f:
-        queryList = f.readlines()
+        queryList = f.read().splitlines()
+
+    # if no linklist exists create empty file
+    linklist_filepath = cfg["general"]["linklist_filepath"]
+    if not os.path.exists(linklist_filepath):
+        open(linklist_filepath, "w").close()
 
     AZURE_STORAGE_NAME = os.environ.get("AZURE_STORAGE_NAME")
     AZURE_STORAGE_KEY = os.environ.get("AZURE_STORAGE_KEY")
 
     logger.info("************ Start ************")
+    update_linklist = False
 
-    
+    ## update Linklist   
     if update_linklist:
         # get links
         newLinks = get_data_utils.get_links(
-            queryList, topN=cfg["googleSearch"]["topN"]
+            queryList, topN=cfg["googleSearch"]["SearchTopN"]
             )
         nLinksNew = np.sum([len(v) for v in newLinks.values()])        
 
         # merge new and existing links
-        linklist_filepath = cfg["general"]["linklist_filepath"]
-        if not os.path.exists(linklist_filepath):
-            open(linklist_filepath, "w").close()
-
         try:
             with open(linklist_filepath, "r") as f:
                 oldLinks = json.load(f)
@@ -60,6 +62,24 @@ def main(config_filepath, query_filepath, update_linklist):
             json.dump(allLinks, f, sort_keys=True, indent=4)
         
         logger.info("New total of links saved: %d" % nLinksTot)
+    
+    
+    ## Crawl webpages in linklist
+    with open(linklist_filepath, "r") as f:
+        linklist = json.load(f)
+    
+    for k,v in linklist.items():
+
+        # setup directories
+        dirName = k.replace(" ", "_")
+        storagePath = "data/raw/" + dirName 
+        if not os.path.exists(storagePath):
+            os.mkdir(storagePath)
+
+        # crawling
+        nFilesWritten = get_data_utils.crawl_links(v, storagePath)
+
+    logger.info("HTML Files written to disk: %d" % nFilesWritten )
     
     '''
     ## save data
@@ -84,7 +104,7 @@ def main(config_filepath, query_filepath, update_linklist):
         )
 
     
-    logger.info("%d New articles added to datafile" % (len(feedDataUpdated)-len(feedDataStored)))
+
 '''
     logger.info("************ End ************")
     

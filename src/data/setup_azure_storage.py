@@ -11,6 +11,7 @@ def main():
     """ Creates necessary containers to on azure storage 
         to store the feedly data 
     """
+    ## create logger
     logger = logging.getLogger(__name__)
     logger.info("start setup azure blob storage")
 
@@ -28,7 +29,7 @@ def main():
         ) 
 
     # Create Container
-    container_name = "feedlydata"
+    container_name = "googledata"
     if block_blob_service.create_container(container_name):
         logger.info("new container created: %s" % container_name)
 
