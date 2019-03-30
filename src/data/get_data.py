@@ -28,7 +28,7 @@ def main(config_filepath, query_filepath, update_linklist):
         queryList = f.read().splitlines()
 
     # if no linklist exists create empty file
-    linklist_filepath = cfg["general"]["linklist_filepath"]
+    linklist_filepath = cfg["paths"]["linklist"]
     if not os.path.exists(linklist_filepath):
         open(linklist_filepath, "w").close()
 

@@ -8,8 +8,7 @@ from azure_storage_utils import load_text_file
 
 @click.command()
 @click.argument("config_filepath", type=click.Path(exists=True))
-@click.argument("output_dir", type=click.Path(writable=True))
-def main(config_filepath, output_dir):
+def main(config_filepath):
     """ load raw text data, apply preprocessing pipeline and save results 
     """
     ## create logger
@@ -19,61 +18,28 @@ def main(config_filepath, output_dir):
     with open(config_filepath, "r") as f:
         cfg = json.load(f)
 
-    AZURE_STORAGE_NAME = os.environ.get("AZURE_STORAGE_NAME")
-    AZURE_STORAGE_KEY = os.environ.get("AZURE_STORAGE_KEY")
-    NOW = datetime.datetime.now()
+    
     ## start
     logger.info("************ Start ************")
-    
-    # load raw data
-    dRaw = load_text_file(
-        containerName = cfg["azureStorage"]["containerName"], 
-        blobName = cfg["azureStorage"]["blobName"],
-        accountName = AZURE_STORAGE_NAME,
-        accountKey = AZURE_STORAGE_KEY
+
+
+    # prepare kaggle dataset
+
+    trainTestSplit = cfg["ner_training"]["trainTestSplit"]
+
+    output_path = os.path.join(cfg["paths"]["ner_trainingdata"], "train.txt")
+    kaggle_data = pd.read_csv(
+        cfg["paths"]["kaggle_ner_dataset"], encoding = "latin1"
         )
-    logger.info("Raw documents retrieved: %d " % len(dRaw))
-
-    # process structured data
-    df = pd.DataFrame.from_dict(dRaw).transpose()
-    df = df[["feedTitle", "author", "published", "engagement", "title"]]
-    df["published"] = pd.to_datetime(df["published"], unit="ms")
-    df["fileID"] = np.arange(len(df)) + 1
-
-    # save structured data to pickle
-    outputPath_structured = os.path.join(
-        output_dir, "structured_data_"+ NOW.strftime("%Y%m%d") + ".pickle"
+    kaggle_data = kaggle_data.fillna(method="ffill")
+    kaggle_data_prep = preprocess_utils.dataframe_to_conll(
+        data=kaggle_data,
+        output_path=
         )
-    df.to_pickle(outputPath_structured)
-    logger.info("Structured data saved: %d" % len(df))
+    with open("data/interim/kaggle_data.train.txt", "w") as f:
+        f.write(kaggle_data_prep)
 
-
-    # extract text data and apply preprocessing pipeline
-    outputPath_text = os.path.join(output_dir, "text_data")
-    if not os.path.exists(outputPath_text):
-        os.mkdir(outputPath_text)
-
-    nFiles = 0
-
-    for k,v in dRaw.items():
-        try:
-            title = v.get("title")
-            summary = v.get("summary").get("content")
-            text = title + "\n" + summary
-            text_processed = preprocess_utils.preprocess_document(text)
-
-            fileName = "feedly_"+str(df["fileID"][k])+".txt"
-            fileName = os.path.join(outputPath_text, fileName)
-            with open(os.path.normpath(fileName), "w") as f:
-                f.write(text_processed)
-            nFiles +=1
-
-        except AttributeError:
-            pass
-        except TypeError:
-            pass
-
-    logger.info("Text documents written: %d" %nFiles)
+    logger.info("Tokens written: %d (output path: %s)", %len(kaggle_data) %output_path)
     logger.info("************ End ************")
 
 if __name__ == "__main__": 

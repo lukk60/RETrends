@@ -1,8 +1,33 @@
 # -*- coding: utf-8 -*-
+import pandas as pd
 from bs4 import BeautifulSoup
 import unicodedata
 import re
 import nltk
+
+def dataframe_to_conll(data, output_path):
+    ''' casts the kaggle ner dataset in the correct format to be used by the modelling part
+        
+    Parameters:
+        data (DataFrame): DataFrame with Columns "Word" and "Tag"  
+
+    Returns:
+        None
+    '''
+    emptyLine = {"Sentence #": None, "Word": "", "POS": "", "Tag": ""}
+
+    for i in range(len(data)):
+        if i == 0:
+            pass
+        else:
+            if data["Sentence #"][i] != data["Sentence #"][i-1]:
+                newline = pd.DataFrame(emptyLine, index=[float(i)-0.5])
+                data = pd.concat([data.iloc[:i-1], newline, data.iloc[i:]]).reset_index(drop=True)
+            else:
+                pass
+    
+    data[["Word","Tag"]].to_csv(output_path, sep=" ", header=False, index=False)
+
 
 def strip_html(text):
     try:

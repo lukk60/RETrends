@@ -8,8 +8,14 @@
     {
         "SearchTopN": 100
     },
-    "general":
+    "paths":
     {
-        "linklist_filepath": "D:/ZHAW/RETrends/data/raw/linklist.json"
+        "linklist": "D:/ZHAW/RETrends/data/raw/linklist.json",
+        "kaggle_ner_dataset": "D:/ZHAW/RETrends/data/external/kaggle_ner_dataset/ner_dataset.csv",
+        "ner_trainingdata": "D:/ZHAW/RETrends/data/interim/"
+    },
+    "ner_training":
+    {
+        "trainTestSplit": {"train": 0.8, "dev": 0.1, "test": 0.1}
     }
 }
