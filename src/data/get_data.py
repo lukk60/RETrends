@@ -72,7 +72,7 @@ def main(config_filepath, query_filepath, update_linklist):
 
         # setup directories
         dirName = k.replace(" ", "_")
-        storagePath = "data/raw/" + dirName 
+        storagePath = "data/raw/scrape/" + dirName 
         if not os.path.exists(storagePath):
             os.mkdir(storagePath)
 

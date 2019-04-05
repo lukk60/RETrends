@@ -1,33 +1,118 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 from bs4 import BeautifulSoup
+from bs4.element import Comment
 import unicodedata
 import re
 import nltk
+from nltk.tokenize import sent_tokenize, word_tokenize
 
-def dataframe_to_conll(data, output_path):
+def tag_visible(element):
+    '''tags visible elements in a html document
+    Parameters:
+        element (bs4.element) html element
+
+    Returns:
+        Boolean (True if element is visible)
+    '''
+    if element.parent.name in ['style', 'script', 'head', 'title', 'meta', '[document]']:
+        return False
+    if isinstance(element, Comment):
+        return False
+    return True
+
+
+def text_from_html(body):
+    ''' extract visible text from a html document
+    Parameters:
+        body (bytes object e.g. from read("rb"))
+    Returns:
+        string with all visible text
+    '''
+    soup = BeautifulSoup(body, 'html.parser')
+    texts = soup.findAll(text=True)
+    visible_texts = filter(tag_visible, texts)  
+    
+    return u" ".join(t.strip() for t in visible_texts)
+
+def my_sent_tokenizer(document):
+    ''' customizable sentence tokenizer
+    '''
+    return sent_tokenize(document)
+
+def my_word_tokenizer(sentence):
+    ''' customizable word tokenizer
+    '''
+    return word_tokenize(sentence)
+
+def html_to_wordlist(document):
+    ''' convert html document to conll format
+    Parameters:
+        document (bytes object e.g. from read("rb")
+    Returns:
+        list of sentences of list of words ([[s1w1, s1w2],[s2w1, s2w2]])
+    '''
+    out = []
+
+    text = text_from_html(document)
+    sents = my_sent_tokenizer(text)
+    for s in sents:
+        words = my_word_tokenizer(s)
+        out.append(words)
+    
+    return out
+
+
+def kaggle_to_conll(data, output_path):
     ''' casts the kaggle ner dataset in the correct format to be used by the modelling part
         
     Parameters:
-        data (DataFrame): DataFrame with Columns "Word" and "Tag"  
+        data (DataFrame): DataFrame with Columns "Sentence #", "Word" and "Tag"  
+        output_path (str): Output Path
 
     Returns:
         None
     '''
-    emptyLine = {"Sentence #": None, "Word": "", "POS": "", "Tag": ""}
+    data = data[["Sentence #", "Word", "Tag"]].groupby("Sentence #")
 
-    for i in range(len(data)):
-        if i == 0:
-            pass
-        else:
-            if data["Sentence #"][i] != data["Sentence #"][i-1]:
-                newline = pd.DataFrame(emptyLine, index=[float(i)-0.5])
-                data = pd.concat([data.iloc[:i-1], newline, data.iloc[i:]]).reset_index(drop=True)
-            else:
-                pass
+    # create empty file
+    pd.DataFrame().to_csv(output_path, header=False, index=False, sep=" ")
     
-    data[["Word","Tag"]].to_csv(output_path, sep=" ", header=False, index=False)
+    # add sentences to file
+    def agg_fun(df):
+        df = df.append({"Word": "", "Tag": ""}, ignore_index=True)
+        df[["Word","Tag"]].to_csv(output_path, mode="a", header=False, index=False, sep=" ")
 
+    data.apply(agg_fun)
+    
+def split_train_dev_test(data, splits):
+    ''' splits the dataframe into train dev and testset while avoiding to split up sentences
+
+    Parameters:
+        data (DataFrame): DataFrame with Columns "Sentence #", "Word" and "Tag"  
+        splits (dict): dictionary with the names of the sets and the proportion of the data to include in each set
+
+    Returns
+        list of DataFrames
+    ''' 
+    
+    def find_sentence_nr(s):
+        return int(re.findall("\\d{1,6}", s)[0])
+    
+    data["SentNr"] = data["Sentence #"].apply(find_sentence_nr)
+
+    nSentences = len(set(data["Sentence #"].values.tolist()))
+
+    sets = {}
+    firstSent = 0
+    lastSent = 0
+    for k,v in splits.items():
+        lastSent = firstSent + int(nSentences*v)
+        dk = data[(firstSent < data["SentNr"]) & (data["SentNr"] < lastSent)]
+        sets[k] = dk
+        firstSent = lastSent
+
+    return sets
 
 def strip_html(text):
     try:
