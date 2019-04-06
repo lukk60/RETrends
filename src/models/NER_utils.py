@@ -6,4 +6,4 @@ def load_model(path):
     Parameters:
         path: Path to model
     '''
-    
+    pass

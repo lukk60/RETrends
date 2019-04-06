@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import sys, os, click, logging, datetime, json
 from dotenv import find_dotenv, load_dotenv
+from guillaumegenthial_LSTM_CRF.model.ner_model import NERModel
+from guillaumegenthial_LSTM_CRF.model.config import Config
 import pickle
 
 @click.command()
@@ -12,11 +14,34 @@ def main(config_filepath):
     logger = logging.getLogger(__name__)
 
     ## load config
+    # general
     with open(config_filepath, "r") as f:
         cfg = json.load(f)
 
+    # model config
+    modelConfig = Config()
+ 
     ## start
     logger.info("************ Start ************")
+    
+    # load model and pretrained weights
+    model = NERModel(modelConfig)
+    model.build()
+    model.restore_session(modelConfig.dir_model)
+
+    # load data
+    with open(cfg["paths"]["crawled_data_processed"], "rb") as f:
+        data = pickle.load(f)
+
+    # prediction
+    for k,v in data.items():
+        for i,s in enumerate(v):
+            preds = zip(s, model.predict(s))
+            v[i] = list(preds)
+        data[k] = v
+
+    with open(cfg["paths"]["crawled_data_predicted"], "wb") as f:
+        pickle.dump(data, f)
 
     logger.info("************ End ************")
 

@@ -14,7 +14,8 @@
         "kaggle_ner_dataset": "D:/ZHAW/RETrends/data/external/kaggle_ner_dataset/ner_dataset.csv",
         "ner_trainingdata": "D:/ZHAW/RETrends/data/interim/",
         "crawled_data_raw": "D:/ZHAW/RETrends/data/raw/scrape",
-        "crawled_data_processed": "D:/ZHAW/RETrends/data/interim/crawled_processed.pkl"
+        "crawled_data_processed": "D:/ZHAW/RETrends/data/interim/crawled_processed.pkl",
+        "crawled_data_predicted": "D:/ZHAW/RETrends/data/processed/crawled_predicted.pkl"
     },
     "ner_training":
     {
