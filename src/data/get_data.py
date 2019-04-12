@@ -6,6 +6,8 @@ import datetime
 import azure_storage_utils
 import get_data_utils
 import numpy as np
+import re
+import shutil
 
 @click.command()
 @click.argument("config_filepath", type=click.Path(exists=True))
@@ -27,16 +29,13 @@ def main(config_filepath, query_filepath, update_linklist):
     with open(query_filepath, "r") as f:
         queryList = f.read().splitlines()
 
+    STORAGE_PATH = "data/raw/scraped_data/"
     # if no linklist exists create empty file
-    linklist_filepath = cfg["paths"]["linklist"]
-    if not os.path.exists(linklist_filepath):
-        open(linklist_filepath, "w").close()
-
-    AZURE_STORAGE_NAME = os.environ.get("AZURE_STORAGE_NAME")
-    AZURE_STORAGE_KEY = os.environ.get("AZURE_STORAGE_KEY")
+    LINKLIST_PATH = "data/raw/linklist.json"
+    if not os.path.exists(LINKLIST_PATH):
+        open(LINKLIST_PATH, "w").close()
 
     logger.info("************ Start ************")
-    update_linklist = False
 
     ## update Linklist   
     if update_linklist:
@@ -48,7 +47,7 @@ def main(config_filepath, query_filepath, update_linklist):
 
         # merge new and existing links
         try:
-            with open(linklist_filepath, "r") as f:
+            with open(LINKLIST_PATH, "r") as f:
                 oldLinks = json.load(f)
         except:
             oldLinks = dict()
@@ -58,54 +57,41 @@ def main(config_filepath, query_filepath, update_linklist):
         logger.info("Returned links: %d" % nLinksNew)
     
         # save updated linklist
-        with open(linklist_filepath, "w") as f:
+        with open(LINKLIST_PATH, "w") as f:
             json.dump(allLinks, f, sort_keys=True, indent=4)
         
         logger.info("New total of links saved: %d" % nLinksTot)
     
     
     ## Crawl webpages in linklist
-    with open(linklist_filepath, "r") as f:
+    with open(LINKLIST_PATH, "r") as f:
         linklist = json.load(f)
     
-    for k,v in linklist.items():
+    # delete old files
+    for f in os.listdir(STORAGE_PATH):
+        shutil.rmtree(os.path.join(STORAGE_PATH, f))
 
+    for k,v in linklist.items():
+        
         # setup directories
         dirName = k.replace(" ", "_")
-        storagePath = "data/raw/scrape/" + dirName 
+        storagePath =  STORAGE_PATH + dirName  
         if not os.path.exists(storagePath):
             os.mkdir(storagePath)
 
-        # crawling
-        nFilesWritten = get_data_utils.crawl_links(v, storagePath)
+        # scrape pages in linklist
+        for i,l in enumerate(v):
 
-    logger.info("HTML Files written to disk: %d" % nFilesWritten )
+            # skip pdfs
+            if len(re.findall(".pdf", l))==0:
+                res = get_data_utils.get_webpage(l)
+                get_data_utils.save_html(res, storagePath, str(i)+".html")
+                logger.info("download complete: %s" %l)
+            else: 
+                logger.info("PDF File skipped: %s" %l)
+
+    logger.info("HTML Files written to disk: %d" % i )
     
-    '''
-    ## save data
-    # load stored data from blob store
-    feedDataStored = azure_storage_utils.load_text_file(
-        containerName = cfg["azureStorage"]["containerName"], 
-        blobName = cfg["azureStorage"]["blobName"],
-        accountName = AZURE_STORAGE_NAME,
-        accountKey = AZURE_STORAGE_KEY
-        )
-
-    # merge downloaded data and data from blob store
-    feedDataUpdated = {**feedDataStored, **feedDataSimple}
-
-    # save back zu blob store
-    azure_storage_utils.save_text_file(
-        data = json.dumps(feedDataUpdated),
-        containerName = cfg["azureStorage"]["containerName"], 
-        blobName = cfg["azureStorage"]["blobName"],
-        accountName = AZURE_STORAGE_NAME,
-        accountKey = AZURE_STORAGE_KEY
-        )
-
-    
-
-'''
     logger.info("************ End ************")
     
 if __name__ == "__main__": 

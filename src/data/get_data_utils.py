@@ -6,7 +6,6 @@ import time
 import requests
 import os
 
-
 def get_links(searchStrings, topN):
     ''' send queries to google websearch and return first N results as links
     Parameters:
@@ -60,7 +59,7 @@ def get_webpage(url):
     
     headers = {"user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36"}
     try:
-        res = requests.get(url, headers=headers)
+        res = requests.get(url, headers=headers, timeout=10)
         return(res.content)
     except Exception as e:
         print(e)
@@ -98,22 +97,6 @@ def read_html(path):
         doc = read(f)
 
     return doc
-
-def crawl_links(linkList, path):
-    ''' download visible text for each website in linklist and save it 
-        to disk
-    Parameters:
-        linklist: list
-            list of urls
-    Returns: 
-        number of files written
-    '''
-    for i,l in enumerate(linkList):
-        res = get_webpage(l)
-        save_html(res, path, str(i)+".html")
-
-    return(i)
-
 
 
 

@@ -45,17 +45,16 @@ def my_word_tokenizer(sentence):
     '''
     return word_tokenize(sentence)
 
-def html_to_wordlist(document):
-    ''' convert html document to conll format
+def text_to_wordlist(document):
+    ''' convert text document to conll format (wordlist)
     Parameters:
-        document (bytes object e.g. from read("rb")
+        document (string)
     Returns:
         list of sentences of list of words ([[s1w1, s1w2],[s2w1, s2w2]])
     '''
     out = []
 
-    text = text_from_html(document)
-    sents = my_sent_tokenizer(text)
+    sents = my_sent_tokenizer(document)
     for s in sents:
         words = my_word_tokenizer(s)
         out.append(words)

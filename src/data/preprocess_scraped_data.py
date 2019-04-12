@@ -3,6 +3,7 @@ import sys, os, click, logging, datetime, json
 from dotenv import find_dotenv, load_dotenv
 import preprocess_utils
 import pickle
+import shutil
 
 @click.command()
 @click.argument("config_filepath", type=click.Path(exists=True))
@@ -16,27 +17,48 @@ def main(config_filepath):
     with open(config_filepath, "r") as f:
         cfg = json.load(f)
 
+    RAW_PATH = "data/raw/scraped_data/"
+    INTERIM_PATH = "data/interim/scraped_data/"
+
     ## start
     logger.info("************ Start ************")
 
-    rawPath = cfg["paths"]["crawled_data_raw"]
+    # delete old files
+    for f in os.listdir(INTERIM_PATH):
+        if os.path.isdir(os.path.join(INTERIM_PATH, f)):
+            shutil.rmtree(os.path.join(INTERIM_PATH, f))
+
+
     data = {}
 
-    # process all files in rawPath
-    for folder in os.listdir(rawPath): 
-        for file in os.listdir(os.path.join(rawPath, folder)):
-            with open(os.path.join(rawPath, folder, file), "rb") as f:
+    # process all files in RAW_PATH
+    for folder in os.listdir(RAW_PATH): 
+        for file in os.listdir(os.path.join(RAW_PATH, folder)):
+
+            # apply preprocessing
+            with open(os.path.join(RAW_PATH, folder, file), "rb") as f:
                 html = f.read()
-            data[f.name] = preprocess_utils.html_to_wordlist(html)
+            text = preprocess_utils.text_from_html(html)
+            
+            # save processed document
+            outputPath = os.path.join(INTERIM_PATH, folder)
+            if not os.path.exists(outputPath):
+                os.mkdir(outputPath)
+            with open(os.path.join(
+                outputPath, file.split(".")[0]+".txt"
+                ), "wb") as f:
+                f.write(text.encode("utf-8"))
+            logger.info("file processed: %s - %s" %(str(folder), str(file)))
+
+            # convert to wordlist
+            data[f.name] = preprocess_utils.text_to_wordlist(text) 
     
-    # save processed data
-    with open(cfg["paths"]["crawled_data_processed"], "wb") as f:
+    # save wordlist
+    with open(os.path.join(INTERIM_PATH, "scraped_data_wordlist.pkl"), "wb") as f:
         pickle.dump(data, file=f)
 
     logger.info("Number of documents tokenized: %d" %len(data.keys()))
     logger.info("************ End ************")
-
-
 
 if __name__ == "__main__": 
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'

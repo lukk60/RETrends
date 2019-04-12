@@ -3,6 +3,7 @@ import sys, os, click, logging, datetime, json
 from dotenv import find_dotenv, load_dotenv
 from guillaumegenthial_LSTM_CRF.model.ner_model import NERModel
 from guillaumegenthial_LSTM_CRF.model.config import Config
+import NER_utils
 import pickle
 
 @click.command()
@@ -18,11 +19,15 @@ def main(config_filepath):
     with open(config_filepath, "r") as f:
         cfg = json.load(f)
 
+    INPUT_FILE = "data/interim/scraped_data/scraped_data_wordlist.pkl"
+    OUTPUT_PATH = "data/processed/"
+
     # model config
     modelConfig = Config()
- 
+    
     ## start
     logger.info("************ Start ************")
+
     
     # load model and pretrained weights
     model = NERModel(modelConfig)
@@ -30,7 +35,7 @@ def main(config_filepath):
     model.restore_session(modelConfig.dir_model)
 
     # load data
-    with open(cfg["paths"]["crawled_data_processed"], "rb") as f:
+    with open(INPUT_FILE, "rb") as f:
         data = pickle.load(f)
 
     # prediction
@@ -40,8 +45,22 @@ def main(config_filepath):
             v[i] = list(preds)
         data[k] = v
 
-    with open(cfg["paths"]["crawled_data_predicted"], "wb") as f:
+    logger.info("Prediction complete")
+
+    ## save predictions
+    predictionFilePath = os.path.join(
+        OUTPUT_PATH, "scraped_data_predictions.pkl"
+        )
+    with open(predictionFilePath, "wb") as f:
         pickle.dump(data, f)
+    
+    entityList = NER_utils.get_entity_list(data)
+
+    entityFilePath = os.path.join(
+        OUTPUT_PATH, "scraped_data_entitylist.pkl"
+    )
+    with open(entityFilePath, "wb") as f:
+        pickle.dump(entityList, f)
 
     logger.info("************ End ************")
 
