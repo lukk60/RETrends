@@ -72,7 +72,7 @@ def save_html(doc, path, fileName):
         path: string
             folder to save the html file in
     Returns:
-        None
+        path to where the file is stored
     '''
     try: 
         soup = BeautifulSoup(doc, "html.parser")
@@ -80,8 +80,12 @@ def save_html(doc, path, fileName):
         fPath = os.path.join(path, fileName)
         with open(fPath, "wb") as f:
             f.write(html)
+        return fPath
+        
     except TypeError:
         print("Empty HTML Response for :", path, "/", fileName)
+
+    
 
     
 

@@ -3,7 +3,7 @@ import sys, os, click, logging, datetime, json
 from dotenv import find_dotenv, load_dotenv
 from guillaumegenthial_LSTM_CRF.model.ner_model import NERModel
 from guillaumegenthial_LSTM_CRF.model.config import Config
-import NER_utils
+import ner_utils
 import pickle
 
 @click.command()
@@ -19,7 +19,8 @@ def main(config_filepath):
     with open(config_filepath, "r") as f:
         cfg = json.load(f)
 
-    INPUT_FILE = "data/interim/scraped_data/scraped_data_wordlist.pkl"
+    INPUT_DATA = "data/interim/scraped_data/scraped_data_wordlist.pkl"
+    INPUT_METADATA = "data/interim/scraped_data/scraped_data_meta.pkl"
     OUTPUT_PATH = "data/processed/"
 
     # model config
@@ -34,16 +35,30 @@ def main(config_filepath):
     model.build()
     model.restore_session(modelConfig.dir_model)
 
-    # load data
-    with open(INPUT_FILE, "rb") as f:
+    # load datasets
+    with open(INPUT_DATA, "rb") as f:
         data = pickle.load(f)
 
+    with open(INPUT_METADATA, "rb") as f:
+        metadata = pickle.load(f)
+
     # prediction
-    for k,v in data.items():
-        for i,s in enumerate(v):
-            preds = zip(s, model.predict(s))
-            v[i] = list(preds)
-        data[k] = v
+    
+    for k,v in metadata.items():
+        try:
+            # keep only english documents
+            if v["language"] == "english":
+                for i,s in enumerate(data[v["processedFile"]]):
+                    preds = zip(s, model.predict(s))
+                    data[v["processedFile"]][i] = list(preds)
+                logger.info("prediction completed for: %s" %k)
+            else:
+                data.pop(v["processedFile"])
+                logger.info("non english language: %s" %k)
+            
+        except KeyError:
+            logger.info("no data for: %s" %k)
+            pass
 
     logger.info("Prediction complete")
 
@@ -54,7 +69,7 @@ def main(config_filepath):
     with open(predictionFilePath, "wb") as f:
         pickle.dump(data, f)
     
-    entityList = NER_utils.get_entity_list(data)
+    entityList = ner_utils.get_entity_list(data)
 
     entityFilePath = os.path.join(
         OUTPUT_PATH, "scraped_data_entitylist.pkl"

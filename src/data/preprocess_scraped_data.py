@@ -23,35 +23,52 @@ def main(config_filepath):
     ## start
     logger.info("************ Start ************")
 
+    # load metadata
+    with open(os.path.join(RAW_PATH, "scraped_data_meta.pkl"), "rb") as f:
+        metadata = pickle.load(f)
+
     # delete old files
     for f in os.listdir(INTERIM_PATH):
         if os.path.isdir(os.path.join(INTERIM_PATH, f)):
             shutil.rmtree(os.path.join(INTERIM_PATH, f))
 
-
     data = {}
 
-    # process all files in RAW_PATH
-    for folder in os.listdir(RAW_PATH): 
-        for file in os.listdir(os.path.join(RAW_PATH, folder)):
-
+    # process all files listed in metadata
+    for k,v in metadata.items():
+        try:
             # apply preprocessing
-            with open(os.path.join(RAW_PATH, folder, file), "rb") as f:
+            with open(v["rawFile"], "rb") as f:
                 html = f.read()
             text = preprocess_utils.text_from_html(html)
             
             # save processed document
-            outputPath = os.path.join(INTERIM_PATH, folder)
+            outputPath = os.path.join(INTERIM_PATH, v["query"].replace(" ", "_"))
             if not os.path.exists(outputPath):
                 os.mkdir(outputPath)
-            with open(os.path.join(
-                outputPath, file.split(".")[0]+".txt"
-                ), "wb") as f:
+            outputFilePath = os.path.join(outputPath, str(v["rank"])+".txt")
+            with open(outputFilePath, "wb") as f:
                 f.write(text.encode("utf-8"))
-            logger.info("file processed: %s - %s" %(str(folder), str(file)))
+            
+            logger.info("file processed: %s" %v["rawFile"])
 
             # convert to wordlist
-            data[f.name] = preprocess_utils.text_to_wordlist(text) 
+            wordList = preprocess_utils.text_to_wordlist(
+                text, cfg["preprocessing"]["minimumSentenceLength"]
+                ) 
+            data[f.name] = wordList
+            # add new metadata
+            metadata[k]["processedFile"] = outputFilePath
+            metadata[k]["language"] = preprocess_utils.detect_language(text)
+            metadata[k]["nSentences"] = len(wordList)
+            metadata[k]["nTokens"] = sum([len(l) for l in wordList])
+        
+        except TypeError:
+            pass
+
+    # save metadata
+    with open(os.path.join(INTERIM_PATH, "scraped_data_meta.pkl"), "wb") as f:
+        pickle.dump(metadata, file=f)
     
     # save wordlist
     with open(os.path.join(INTERIM_PATH, "scraped_data_wordlist.pkl"), "wb") as f:

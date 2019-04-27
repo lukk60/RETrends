@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
+import sys
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 import unicodedata
 import re
 import nltk
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import word_tokenize
+from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
+from nltk.corpus import stopwords
 
 def tag_visible(element):
     '''tags visible elements in a html document
@@ -33,22 +36,28 @@ def text_from_html(body):
     texts = soup.findAll(text=True)
     visible_texts = filter(tag_visible, texts)  
     
-    return u" ".join(t.strip() for t in visible_texts)
+    return u". \n".join(t.strip() for t in visible_texts)
 
 def my_sent_tokenizer(document):
-    ''' customizable sentence tokenizer
+    ''' customized sentence tokenizer
     '''
-    return sent_tokenize(document)
+    punkt_param = PunktParameters()
+    sentence_splitter = PunktSentenceTokenizer(punkt_param)
+    punkt_param.sent_starters.add("\n")
+    
+    return sentence_splitter.tokenize(document)
 
 def my_word_tokenizer(sentence):
     ''' customizable word tokenizer
     '''
     return word_tokenize(sentence)
 
-def text_to_wordlist(document):
+def text_to_wordlist(document, minimumSentenceLength):
     ''' convert text document to conll format (wordlist)
     Parameters:
         document (string)
+        minimumSentenceLength (int) minimal length of a Sentence. 
+            Shorter sentences will be omitted
     Returns:
         list of sentences of list of words ([[s1w1, s1w2],[s2w1, s2w2]])
     '''
@@ -56,8 +65,12 @@ def text_to_wordlist(document):
 
     sents = my_sent_tokenizer(document)
     for s in sents:
-        words = my_word_tokenizer(s)
-        out.append(words)
+        if len(s) > 1:
+            words = my_word_tokenizer(s)
+            if len(words) >= minimumSentenceLength:
+                out.append(words)
+        else:
+            pass
     
     return out
 
@@ -172,3 +185,55 @@ def preprocess_document(doc):
         doc = to_lowercase(doc)
         
         return(doc)
+
+def _calculate_languages_ratios(text):
+    """
+    Calculate probability of given text to be written in several languages and
+    return a dictionary that looks like {'french': 2, 'spanish': 4, 'english': 0}
+    
+    @param text: Text whose language want to be detected
+    @type text: str
+    
+    @return: Dictionary with languages and unique stopwords seen in analyzed text
+    @rtype: dict
+    
+    source: http://blog.alejandronolla.com/2013/05/15/detecting-text-language-with-python-and-nltk/
+    """
+
+    languages_ratios = {}
+
+    tokens = word_tokenize(text)
+    words = [word.lower() for word in tokens]
+
+    # Compute per language included in nltk number of unique stopwords appearing in analyzed text
+    for language in stopwords.fileids():
+        stopwords_set = set(stopwords.words(language))
+        words_set = set(words)
+        common_elements = words_set.intersection(stopwords_set)
+
+        languages_ratios[language] = len(common_elements) # language "score"
+
+    return languages_ratios    
+
+def detect_language(text):
+    """
+    Calculate probability of given text to be written in several languages and
+    return the highest scored.
+    
+    It uses a stopwords based approach, counting how many unique stopwords
+    are seen in analyzed text.
+    
+    @param text: Text whose language want to be detected
+    @type text: str
+    
+    @return: Most scored language guessed
+    @rtype: str
+
+    source: http://blog.alejandronolla.com/2013/05/15/detecting-text-language-with-python-and-nltk/
+    """
+
+    ratios = _calculate_languages_ratios(text)
+
+    most_rated_language = max(ratios, key=ratios.get)
+
+    return most_rated_language

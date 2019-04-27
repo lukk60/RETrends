@@ -8,16 +8,17 @@ import get_data_utils
 import numpy as np
 import re
 import shutil
+import pickle
 
 @click.command()
 @click.argument("config_filepath", type=click.Path(exists=True))
 @click.argument("query_filepath", type=click.Path(exists=True))
-@click.option("--update_linklist", default=True, help="Should the linklist be updated or not")
+@click.option("--update_linklist", default=False, help="Should the linklist be updated or not")
 def main(config_filepath, query_filepath, update_linklist):
     """ send pilot query to google search, 
         collect links in linklist,
         crawl webpages in linklist
-        save crawled documents to azure blob storage
+        save crawled documents to disk
     """    
     ## create logger
     logger = logging.getLogger(__name__)
@@ -29,9 +30,9 @@ def main(config_filepath, query_filepath, update_linklist):
     with open(query_filepath, "r") as f:
         queryList = f.read().splitlines()
 
-    STORAGE_PATH = "data/raw/scraped_data/"
+    RAWDATA_PATH = "D:/ZHAW/RETrends/data/raw/scraped_data/"
+    LINKLIST_PATH = "D:/ZHAW/RETrends/data/raw/linklist.json"
     # if no linklist exists create empty file
-    LINKLIST_PATH = "data/raw/linklist.json"
     if not os.path.exists(LINKLIST_PATH):
         open(LINKLIST_PATH, "w").close()
 
@@ -68,29 +69,47 @@ def main(config_filepath, query_filepath, update_linklist):
         linklist = json.load(f)
     
     # delete old files
-    for f in os.listdir(STORAGE_PATH):
-        shutil.rmtree(os.path.join(STORAGE_PATH, f))
+    for f in os.listdir(RAWDATA_PATH):
+        try:
+            shutil.rmtree(os.path.join(RAWDATA_PATH, f))
+        except NotADirectoryError:
+            pass
 
+    # setup dict to store metadata
+    metaData = dict()
+
+    # Loop over linklist
     for k,v in linklist.items():
         
         # setup directories
         dirName = k.replace(" ", "_")
-        storagePath =  STORAGE_PATH + dirName  
+        storagePath =  os.path.join(RAWDATA_PATH + dirName)
         if not os.path.exists(storagePath):
             os.mkdir(storagePath)
 
         # scrape pages in linklist
         for i,l in enumerate(v):
 
-            # skip pdfs
             if len(re.findall(".pdf", l))==0:
                 res = get_data_utils.get_webpage(l)
-                get_data_utils.save_html(res, storagePath, str(i)+".html")
+                fPath = get_data_utils.save_html(
+                    res, storagePath, str(i)+".html"
+                    )
+                metaData[l] = {
+                    "rank": i, 
+                    "query": k,
+                    "rawFile": fPath
+                    }
                 logger.info("download complete: %s" %l)
             else: 
                 logger.info("PDF File skipped: %s" %l)
 
-    logger.info("HTML Files written to disk: %d" % i )
+    logger.info("HTML Files written to disk: %d" % len(k) )
+    
+    # save metadata
+    metadataPath = os.path.join(RAWDATA_PATH, "scraped_data_meta.pkl")
+    with open(metadataPath, "wb") as f:
+        pickle.dump(metaData, file=f)
     
     logger.info("************ End ************")
     

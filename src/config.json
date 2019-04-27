@@ -8,6 +8,10 @@
     {
         "SearchTopN": 100
     },
+    "preprocessing":
+    {
+        "minimumSentenceLength": 5
+    },
     "ner_training":
     {
         "trainTestSplit": {"train": 0.8, "dev": 0.1, "test": 0.1}

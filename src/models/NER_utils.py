@@ -27,20 +27,26 @@ def extract_entities(s):
     return (sentence, entities, tags)            
 
 def get_entity_list(data):
-    """ convert prediction result to DataFrame containing a list of entities per sentence
+    """ convert prediction result to dict containing a list of entities per sentence
     Parameters:
         data (dict): keys documentname, values list of sentences and word/tag tuples
     Returns:
-        DataFrame
+        dict
     """
     entityList = {}
     for k, doc in data.items():
         entityList[k] = {}
         for i,s in enumerate(doc):
-            sentence, entities, tags = extract_entities(s)
+            try:
+                sentence, entities, tags = extract_entities(s)
+            except:
+                sentence = s
+                entities = None
+                tags = None 
             entityList[k][i] = {
                 "sentence": sentence, "entities": entities, "tags": tags
                 }
+
         
     return(entityList)
 
